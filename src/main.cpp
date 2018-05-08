@@ -31,13 +31,14 @@ int main(int argc, char* argv[]){
 		return 2;
 	}
 
+	//read problem
 	VRP vrp(file);
 	file.close();
 
-
-
-
-
+	//init solver
+	ACO aco(vrp);
+	aco.solve(2*vrp.getCustomers().size()); //according to paper 2n iteration
+	//aco.solve(4);
 }
 
 

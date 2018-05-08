@@ -16,7 +16,7 @@
 #include "VRP.h"
 
 
-struct Vertex;
+class Vertex;
 /**
  * Representation of arc.
  */
@@ -31,9 +31,60 @@ struct Arc{
 /**
  * Customer or depot.
  */
-struct Vertex{
+class Vertex{
+public:
 	const Entity* c;			//! customer assigned to vertex
 	std::vector<Arc*> candidates;	//! candidates for visiting
+
+	/**
+	 * Calculates distance to depot.
+	 *
+	 * @return Distance to depot.
+	 * @throw std::runtime_error	Vertex has not depot in candidates.
+	 */
+	double distToDepot() const{
+		for(auto a : candidates){
+			for(auto v: a->v){
+				if(v->c->type==EnityType::DEPOT){
+					//we can compare distance with time because we are assuming that
+					//vehicle velocity is one distance unit per one time unit
+					return a->distance;
+				}
+			}
+		}
+		//if we are here than something is rotten in the state of this program
+		throw std::runtime_error("Unexpected error when finding distance to depot from vertex.");
+	}
+
+	/**
+	 * Calculates distance from this vertex to given vertex.
+	 *
+	 * @param[in] v
+	 * 	Distance to this vertex.
+	 * @return Distance to vertex.
+	 * @throw std::runtime_error	Unexpected error when finding distance.
+	 */
+
+	double distToVertex(const Vertex& v) const{
+		return VRP::distance(*c, *(v.c));
+	}
+
+	/**
+	 * Select arcs from candidates with given vertex.
+	 *
+	 * @param[in] v
+	 * 	Vertex for arc searching.
+	 * @return
+	 * 	Corepsonding arc. Nullptr when arc with given vertex is not in candidates.
+	 */
+	Arc* selectCandidate(const Vertex& v) const{
+		for(Arc* a: candidates){
+			for(const Vertex* aV: a->v){
+				if(aV->c->id==v.c->id) return a;
+			}
+		}
+		return nullptr;
+	}
 };
 
 class ACO;
@@ -46,34 +97,35 @@ public:
 	 * Ant initialization.
 	 *
 	 * @param[in] iV
-	 * 	Init vertex.
+	 * 	Init vertex. According this vertex will be set initial filledCapacity and time.
 	 */
-	Ant(const Vertex* iV, ACO* aco):filledCapacity(0),time(0),parentACO(aco) {
-		route.push_back(iV);
-		randGen.seed(std::random_device()());
-		dist(0,1);
-	};
+	Ant(const Vertex* iV, ACO* aco);
 
 	/**
-	 * Generate new solution.
+	 * Generates solution for given problem.
+	 * @throw std::runtime_error When maximum route time is too small.
 	 */
-	void genNewSolution();
-
+	std::vector<const Vertex*> genSolution();
 
 private:
-	std::vector<const Vertex*> route;	//! Already visted vertices. In vist order.
-	unsigned filledCapacity;
-	double time; //!time on route
+	const Vertex* initVertex;
+	std::vector<const Vertex*> route;	//! Already visited vertices. In visit order.
+	unsigned filledCapacity=0;
+	double time=0; //!time on route
 	ACO* parentACO;
 	std::mt19937 randGen;
 	std::uniform_real_distribution<double> dist;
+
+	std::set<const Vertex*> tabu;	//! Already visited customers. We can use route but set is faster for finding elements in it
+
 	/**
-	 * Selects next vertex to visit.
+	 * Finds next vertex to visit.
 	 *
 	 * @return
 	 * 	Vertex to next visit. Nullptr in case of failure(no feasible vertex).
+	 * @throw std::runtime_error	Unexpected error when selecting next vertex.
 	 */
-	Vertex* nextVisist();
+	const Vertex* nextVisit();
 
 };
 
@@ -88,7 +140,7 @@ class ACO {
 public:
 
 	/**
-	 * ACO intitialization.
+	 * ACO initialization.
 	 *
 	 * @param[in] v
 	 * 	VRP problem.
@@ -132,6 +184,7 @@ public:
 
 	void setBeta(double beta = 5) {
 		this->beta = beta;
+		arcCreate();
 	}
 
 	unsigned getElitAnts() const {
@@ -189,6 +242,52 @@ public:
 		return vrp;
 	}
 
+	/**
+	 * Calculates time of route.
+	 *
+	 * @param[in] solution
+	 * 	Solution for measure.
+	 * @return
+	 *  solution cost
+	 */
+	double solutionCost(const std::vector<const Vertex*>& solution) const{
+		return solutionCost(solution, 0, solution.size()-1);
+	}
+
+	/**
+	 * Calculates time of route. For given index bounds. [x,y]
+	 *
+	 * @param[in] solution
+	 * 	Solution for measure.
+	 * @param[in] x
+	 * 	Start from this index.
+	 * @param[in] y
+	 *  End on this index.
+	 * @return
+	 *  solution cost
+	 */
+	double solutionCost(const std::vector<const Vertex*>& solution, const unsigned x, const unsigned y) const {
+		double time =
+				(solution[x]->c->type == EnityType::CUSTOMER) ?
+						0 : vrp.getDropTime(); //for depot there is no drop time
+		for (unsigned i = x+1; i <= y; ++i) {
+			time += solution[i - 1]->distToVertex(*solution[i]);
+			if (solution[i - 1]->c->type == EnityType::CUSTOMER)
+				time += vrp.getDropTime();
+		}
+		return time;
+	}
+
+
+
+	/**
+	 * Tries to optimize solution with two opt heuristic.
+	 *
+	 * @param[in|out] solution
+	 * 	Solution for optimization.
+	 */
+	void twoOpt(std::vector<const Vertex*>& solution) const;
+
 private:
 	VRP vrp;
 
@@ -206,6 +305,8 @@ private:
 	std::vector<Vertex> vertices;	//First vertex in vector is depot
 	std::vector<Arc> arcs;
 	std::vector<Ant> ants;
+
+	std::pair<double, std::vector<const Vertex*>> bestSoFar; //! so far the best solution searched
 
 	/**
 	 * Creates arcs.

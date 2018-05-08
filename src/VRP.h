@@ -10,6 +10,7 @@
 #define VRP_H_
 #include <iostream>
 #include <vector>
+#include <cmath>
 /**
  * Structure for coordinates.
  */
@@ -84,7 +85,7 @@ public:
 		int diffX=a.p.x-b.p.x;
 		int diffY=a.p.y-b.p.y;
 
-		return diffX*diffX + diffY*diffY;
+		return std::sqrt(diffX*diffX + diffY*diffY);
 	}
 
 private:
