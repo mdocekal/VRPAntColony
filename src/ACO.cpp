@@ -45,6 +45,8 @@ void ACO::arcCreate(){
 
 	for(Vertex& v: vertices) v.candidates.clear();
 
+	//select max
+
 	for (int i = 0; i < static_cast<int>(vertices.size()) - 1; i++) {
 		for (int j = i + 1; j < static_cast<int>(vertices.size()); j++) {
 
@@ -61,13 +63,18 @@ void ACO::arcCreate(){
 			/*
 			 * This improvment from paper i commented out, because its values are in domain of greate number
 			 * compared to pheromone. Therefore influence of feromone is wipped out.
-			  a.visibility=vertices[i].distToVertex(vertices[0])+vertices[0].distToVertex(vertices[j])
+			 * */
+			a.visibility=vertices[i].distToVertex(vertices[0])+vertices[0].distToVertex(vertices[j])
 				-g*vertices[i].distToVertex(vertices[j])
-				+f*std::abs(vertices[i].distToVertex(vertices[0])-vertices[0].distToVertex(vertices[j]));*/
+				+f*std::abs(vertices[i].distToVertex(vertices[0])-vertices[0].distToVertex(vertices[j]));
 
-			a.visibility=1/vertices[i].distToVertex(vertices[j]);
+
+
+			//a.visibility=1/vertices[i].distToVertex(vertices[j]);
 
 			a.visibility=std::pow(a.visibility, beta);
+
+			std::cout << a.visibility <<std::endl;
 
 			//create the arc
 			arcs.push_back(a);
@@ -78,6 +85,7 @@ void ACO::arcCreate(){
 
 		}
 	}
+
 
 	//ok now we have all arcs and their vertices
 	//now its time to sort the arcs in vertices according to distances
@@ -209,6 +217,7 @@ void ACO::solve(const unsigned iterations){
 			//select arc for update
 			Arc* a =bestSoFar.second[vi]->selectCandidate(*(bestSoFar.second[vi+1]));
 			a->pheromone += pDeltaBest;
+
 		}
 		/*
 		std::cout << "\t\t";
@@ -263,15 +272,22 @@ std::vector<const Vertex*> Ant::genSolution(){
 			//can not find feasible vertex
 			//return to the depot
 			//it finishes one vehicle route and start new for another vehicle
-
 			double distToDepot;
-			while ((distToDepot = route[route.size() - 1]->distToDepot()) + time
+			while (route.size()>0 && (distToDepot = route.back()->distToDepot()) + time
 					> parentACO->getVrp().getMaxRouteTime()) {
+
 				//we must return because distance to depot exceeds route length limit
-				tabu.erase(route[route.size() - 1]);
+				if(route.size()>1){
+					time-=parentACO->getVrp().getDropTime();
+					time-=route.back()->distToVertex(*(route[route.size()-2]));
+					filledCapacity -= route.back()->c->quantity;
+				}
+				tabu.erase(route.back());
 				route.pop_back();
 			}
-
+			//std::cout << "can not find feasible vertex" << std::endl;
+			//std::cout << time << std::endl;
+			//std::cout << parentACO->getVrp().getMaxRouteTime() << std::endl;
 			if (route.size() > 0) {
 				//add depot
 				route.push_back(&(parentACO->getVertices()[0]));
@@ -298,7 +314,6 @@ std::vector<const Vertex*> Ant::genSolution(){
 
 		}
 	}
-
 	//return to depot
 	route.push_back(&(parentACO->getVertices()[0]));
 
@@ -343,12 +358,21 @@ const Vertex* Ant::nextVisit(){
 
 	//do sum of all probabilities
 	double sum=0;
+
+	std::vector<const Arc*> arcsUse; //last filter according to probability
+
 	//std::cout << "ARCS "<< arcs.size() << std::endl;
 	for(auto a : arcs){
 		//std::cout << "P "<< a->pheromone << " V " << a->visibility << std::endl;
 		//std::cout << "\tP "<< std::pow(a->pheromone, parentACO->getAlfa()) << " V " << std::pow(a->visibility, parentACO->getBeta()) << std::endl;
-		sum+=std::pow(a->pheromone, parentACO->getAlfa())+a->visibility; //power for visibility is precalculated
+		double p=std::pow(a->pheromone, parentACO->getAlfa())*a->visibility;
+		if(p>0){
+			sum+=p; //power for visibility is precalculated
+			arcsUse.push_back(a);
+		}
 	}
+
+	if(arcsUse.size()==0) return nullptr; //we have arcs with zero or smaller probability only
 
 	double shoot=dist(randGen); //load gun
 
@@ -356,8 +380,11 @@ const Vertex* Ant::nextVisit(){
 
 	unsigned i=0;
 
-	for(auto a : arcs){
-		probSum+=(std::pow(a->pheromone, parentACO->getAlfa())+a->visibility)/sum; //power for visibility is precalculated
+
+
+	for(auto a : arcsUse){
+
+		probSum+=(std::pow(a->pheromone, parentACO->getAlfa())*a->visibility)/sum; //power for visibility is precalculated
 
 		if(probSum>=shoot){
 			//std::cout << "\tSELECTED "<< vert[i]->c->id << " FROM " << route.back()->c->id << " SHOOT " << shoot << " PROB SUM " << probSum << " SUM " << sum << std::endl;
@@ -366,7 +393,19 @@ const Vertex* Ant::nextVisit(){
 		}
 		i++;
 	}
+	std::cout << "PROB SUM " << probSum << std::endl;
+	std::cout << "shoot " << shoot << std::endl;
+	std::cout << "sum " << sum << std::endl;
+	for(auto a : arcsUse){
 
+			std::cout << "\t" << std::pow(a->pheromone, parentACO->getAlfa())*a->visibility << std::endl;
+			std::cout << "\t\t";
+			for(auto v: a->v){
+				std::cout << v->c->id << ", ";
+			}
+			std::cout << std::endl;
+			std::cout << "\t\t" << a->pheromone << "\t" << a->visibility << std::endl;
+		}
 	//if we are here than something is rotten in the state of this program
 	throw std::runtime_error("Unexpected error when selecting next vertex.");
 

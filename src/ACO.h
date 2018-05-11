@@ -243,7 +243,7 @@ public:
 	}
 
 	/**
-	 * Calculates time of route.
+	 * Calculates cost of route.
 	 *
 	 * @param[in] solution
 	 * 	Solution for measure.
@@ -255,7 +255,7 @@ public:
 	}
 
 	/**
-	 * Calculates time of route. For given index bounds. [x,y]
+	 * Calculates cost of route. For given index bounds. [x,y]
 	 *
 	 * @param[in] solution
 	 * 	Solution for measure.
@@ -267,13 +267,9 @@ public:
 	 *  solution cost
 	 */
 	double solutionCost(const std::vector<const Vertex*>& solution, const unsigned x, const unsigned y) const {
-		double time =
-				(solution[x]->c->type == EnityType::CUSTOMER) ?
-						0 : vrp.getDropTime(); //for depot there is no drop time
+		double time = 0;
 		for (unsigned i = x+1; i <= y; ++i) {
 			time += solution[i - 1]->distToVertex(*solution[i]);
-			if (solution[i - 1]->c->type == EnityType::CUSTOMER)
-				time += vrp.getDropTime();
 		}
 		return time;
 	}
