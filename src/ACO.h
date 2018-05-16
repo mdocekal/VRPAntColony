@@ -69,22 +69,6 @@ public:
 		return VRP::distance(*c, *(v.c));
 	}
 
-	/**
-	 * Select arcs from candidates with given vertex.
-	 *
-	 * @param[in] v
-	 * 	Vertex for arc searching.
-	 * @return
-	 * 	Corepsonding arc. Nullptr when arc with given vertex is not in candidates.
-	 */
-	Arc* selectCandidate(const Vertex& v) const{
-		for(Arc* a: candidates){
-			for(const Vertex* aV: a->v){
-				if(aV->c->id==v.c->id) return a;
-			}
-		}
-		return nullptr;
-	}
 };
 
 class ACO;
@@ -127,6 +111,10 @@ private:
 	 */
 	const Vertex* nextVisit();
 
+	/**
+	 * Ant goes to depot.
+	 */
+	void returnToDepot();
 };
 
 
@@ -267,13 +255,19 @@ public:
 	 *  solution cost
 	 */
 	double solutionCost(const std::vector<const Vertex*>& solution, const unsigned x, const unsigned y) const {
-		double time = 0;
-		for (unsigned i = x+1; i <= y; ++i) {
-			time += solution[i - 1]->distToVertex(*solution[i]);
+		double time =0; //for depot there is no drop time
+		if (solution[x]->c->type == EnityType::CUSTOMER)
+			time += vrp.getDropTime();
+
+		for (unsigned i = x; i < y; ++i) {
+			time += solution[i]->distToVertex(*solution[i+1]);
+
+			if (solution[i+1]->c->type == EnityType::CUSTOMER)
+				time += vrp.getDropTime();
 		}
+
 		return time;
 	}
-
 
 
 	/**
@@ -284,10 +278,18 @@ public:
 	 */
 	void twoOpt(std::vector<const Vertex*>& solution) const;
 
+	/**
+	 * Get solution.
+	 *
+	 * @return Solution
+	 */
+	const std::pair<double, std::vector<const Vertex*> >& getBestSoFar() const {
+		return bestSoFar;
+	}
+
 private:
 	VRP vrp;
 
-	//TODO: boundaries check in setters
 	//default values are set according to given paper.
 	double alfa=5; //! Impact parameter of pheromone.
 	double beta=5; //! Impact parameter of visibility.
@@ -303,6 +305,32 @@ private:
 	std::vector<Ant> ants;
 
 	std::pair<double, std::vector<const Vertex*>> bestSoFar; //! so far the best solution searched
+
+
+	/**
+	 * Select arc with given vertex.
+	 *
+	 * @param[in] v
+	 * 	Vertex for arc searching.
+	 * @param[in] u
+	 * 	Other vertex for arc searching.
+	 * @return
+	 * 	Corepsonding arc. Nullptr when arc with given vertex is not in candidates.
+	 */
+	Arc* selectArc(const Vertex& v, const Vertex& u){
+
+		for(Arc& a: arcs){
+			bool one=false;
+			for(const Vertex* aV: a.v){
+				if(aV->c->id==v.c->id || aV->c->id==u.c->id){
+					if(one) return &a;
+					one=true;
+				}
+			}
+		}
+
+		return nullptr;
+	}
 
 	/**
 	 * Creates arcs.

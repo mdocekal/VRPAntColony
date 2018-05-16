@@ -7,6 +7,7 @@
  */
 #include <iostream>
 #include <fstream>
+#include <exception>
 #include "VRP.h"
 #include "ACO.h"
 
@@ -20,25 +21,43 @@
  * @return Exits codes.
  */
 int main(int argc, char* argv[]){
-	if(argc!=2){
-		std::cout << "This program is expecting one argument with file containing problem to solve." << std::endl;
-		return 1;
+	try{
+		if(argc!=2){
+			std::cerr << "This program is expecting one argument with file containing problem to solve." << std::endl;
+			return 1;
+		}
+
+		std::ifstream file(argv[1]);
+		if(!file){
+			std::cerr << "Can not open "<< argv[1] << " for reading."<< std::endl;
+			return 2;
+		}
+
+		//read problem
+		VRP vrp(file);
+		file.close();
+		if(vrp.getCustomers().size()==0){
+			std::cerr << "No customers to visit." << std::endl;
+			return 3;
+		}
+
+		//init solver
+		ACO aco(vrp);
+		aco.solve(2*vrp.getCustomers().size()); //according to paper 2n iteration
+
+		auto s=aco.getBestSoFar();
+		for(auto v: s.second){
+			std::cout << v->c->id << "\t";
+		}
+		std::cout << "\n" << s.first << std::endl;
+
+	}catch (const std::exception& e) {
+		std::cerr << "Error:\n\t"<< e.what() << std::endl;
+		return 3;
+	}catch(...){
+		std::cerr << "Unknown error."<< std::endl;
+		return 4;
 	}
-
-	std::ifstream file(argv[1]);
-	if(!file){
-		std::cout << "Can not open "<< argv[1] << " for reading."<< std::endl;
-		return 2;
-	}
-
-	//read problem
-	VRP vrp(file);
-	file.close();
-
-	//init solver
-	ACO aco(vrp);
-	aco.solve(2*vrp.getCustomers().size()); //according to paper 2n iteration
-	//aco.solve(4);
 }
 
 
