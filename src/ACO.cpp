@@ -3,7 +3,7 @@
  * @file ACO.cpp
  * @date 6. 5. 2018
  * @author xdocek09
- * @brief  Header file of ant colony optimization for vehicle routing problem.
+ * @brief  Source file of ant colony optimization for vehicle routing problem.
  */
 
 #include "ACO.h"
