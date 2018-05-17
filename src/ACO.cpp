@@ -44,7 +44,10 @@ void ACO::arcCreate(){
 
 	for(Vertex& v: vertices)v.candidates.clear();
 
+	#ifndef VIS_DISTANCE
 	double visibilityMin=std::numeric_limits<double>::infinity();
+	#endif
+
 	//select max
 	for (int i = 0; i < static_cast<int>(vertices.size()) - 1; i++) {
 		for (int j = i + 1; j < static_cast<int>(vertices.size()); j++) {
@@ -64,13 +67,19 @@ void ACO::arcCreate(){
 			a.visibility=vertices[i].distToVertex(vertices[0])+vertices[0].distToVertex(vertices[j])
 				-g*a.distance
 				+f*std::abs(vertices[i].distToVertex(vertices[0])-vertices[0].distToVertex(vertices[j]));
+
+			if(visibilityMin>a.visibility) visibilityMin=a.visibility;
 			#endif
 
 			#ifdef VIS_DISTANCE
-			a.visibility=1/a.distance;
+			if(a.distance==0){
+				a.visibility=1;
+			}else{
+				a.visibility=1/a.distance;
+			}
 			#endif
 
-			if(visibilityMin>a.visibility) visibilityMin=a.visibility;
+
 
 
 			//create the arc
@@ -84,6 +93,8 @@ void ACO::arcCreate(){
 		}
 	}
 
+
+	#ifndef VIS_DISTANCE
 	//shift visibility
 	if(visibilityMin<=0){
 		visibilityMin=(-visibilityMin)+1;
@@ -91,6 +102,7 @@ void ACO::arcCreate(){
 			a.visibility=std::pow(visibilityMin+a.visibility, beta);
 		}
 	}
+	#endif
 
 	#ifndef NO_CANDIDATES
 
@@ -426,18 +438,18 @@ const Vertex* Ant::nextVisit(){
 		}
 		i++;
 	}
-	std::cout << "PROB SUM " << probSum << std::endl;
-	std::cout << "shoot " << shoot << std::endl;
-	std::cout << "sum " << sum << std::endl;
+	std::cerr << "PROB SUM " << probSum << std::endl;
+	std::cerr << "shoot " << shoot << std::endl;
+	std::cerr << "sum " << sum << std::endl;
 	for(auto a : arcsUse){
 
-			std::cout << "\t" << std::pow(a->pheromone, parentACO->getAlfa())*a->visibility << std::endl;
-			std::cout << "\t\t";
+			std::cerr << "\t" << std::pow(a->pheromone, parentACO->getAlfa())*a->visibility << std::endl;
+			std::cerr << "\t\t";
 			for(auto v: a->v){
-				std::cout << v->c->id << ", ";
+				std::cerr << v->c->id << ", ";
 			}
-			std::cout << std::endl;
-			std::cout << "\t\t" << a->pheromone << "\t" << a->visibility << std::endl;
+			std::cerr << std::endl;
+			std::cerr << "\t\t" << a->pheromone << "\t" << a->visibility << std::endl;
 		}
 	//if we are here than something is rotten in the state of this program
 	throw std::runtime_error("Unexpected error when selecting next vertex.");
